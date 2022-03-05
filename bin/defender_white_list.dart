@@ -1,35 +1,46 @@
 import 'dart:io';
 
 import 'package:args/args.dart';
-import 'package:path/path.dart' as p;
+import 'powershell/command/mp_preference.dart';
+import 'io/path.dart';
 
-import 'util/path.dart';
-
+bool _apply = false;
 void main(List<String> args) async {
   final parser = ArgParser()
     ..addFlag(
-      'include-file',
-      abbr: 'F',
-      help: 'include file',
-      defaultsTo: false,
+      'apply',
+      abbr: 'A',
+      help: 'Apply the changes, default is $_apply',
+      defaultsTo: _apply,
     )
     ..addOption(
       'white-list-file',
       abbr: 'f',
       help: 'white list file',
+      defaultsTo: 'white.list',
     );
   try {
-    final results = parser.parse([
+    final results = parser.parse({
       ...args,
+      // r'--white-list-file=white.list',
       // r'C:\Users\ipcjs\Downloads',
-      r'K:\.placeholder',
-    ]);
+    });
+    _apply = results['apply'];
+
     final whiteList = results.rest.map((e) => Path(e)).toSet();
 
-    final String? whiteListFile;
-    if ((whiteListFile = results['white-list-file']) != null) {
-      for (final line in await File(whiteListFile!).readAsLines()) {
-        whiteList.add(Path(line));
+    final String? whiteListFilePath;
+    if ((whiteListFilePath = results['white-list-file']) != null) {
+      final whiteListFile = File(whiteListFilePath!);
+      if (await whiteListFile.exists()) {
+        for (final line in await whiteListFile.readAsLines()) {
+          if (line.trim().isNotEmpty && !line.startsWith('#')) {
+            whiteList.add(Path(line));
+          }
+        }
+      } else {
+        print(
+            '[warn] white list file not found: ${whiteListFile.absolute.path}');
       }
     }
     if (whiteList.isEmpty) {
@@ -38,7 +49,6 @@ void main(List<String> args) async {
 
     await process(
       whiteList: whiteList,
-      includeFile: results['include-file'],
     );
   } catch (e, st) {
     print('$e\n'
@@ -50,39 +60,54 @@ void main(List<String> args) async {
 
 Future<void> process({
   required Set<Path> whiteList,
-  bool includeFile = false,
 }) async {
   final results = await revertPaths(
     whiteList,
-    onlyIncludeDir: !includeFile,
+    onlyIncludeDir: true,
   );
-  final excludes = {
-    Path(r''),
+  final excludes = <Path>{
+    Path(r'C:\Documents and Settings'),
+    Path(r'C:\Recovery'),
   };
-  final list = results.where((it) {
-    final isSystemFile = it.name.startsWith('\$') || //
-        it.name == 'System Volume Information';
+  final blackList = results.where((it) {
+    final isSystemFile = it.name.startsWith('\$');
     return !isSystemFile && !excludes.contains(it);
   }).toList(growable: false);
 
-  print(list.join('\n'));
+  print('''
+White list:
+${whiteList.map((e) => e.path).join('\n')}
+
+↓↓↓↓↓↓↓↓↓↓
+
+Black list:
+${blackList.map((e) => e.path).join('\n')}
+''');
+  if (_apply) const MpPreference().exclusionPath.set(blackList);
 }
 
 Future<Set<Path>> revertPaths(
   Set<Path> dirs, {
   bool onlyIncludeDir = false,
 }) async {
-  final results = <Path>{};
+  final includes = <Path>{};
+  final excludes = <Path>{};
   for (final dir in dirs) {
     Path? item = dir;
     while (item != null) {
-      results.remove(item);
+      excludes.add(item);
       final parent = item.parent;
       if (parent != null) {
         await for (final brother in parent.list(followLinks: false)) {
-          if (brother != item &&
-              (!onlyIncludeDir || await brother.isDirectory())) {
-            results.add(brother);
+          if (brother != item) {
+            final stat = await brother.stat();
+            if ((!onlyIncludeDir ||
+                    stat.type == FileSystemEntityType.directory) &&
+                // mode=0 is special system file, should be excluded
+                stat.mode != 0) {
+              // print('${stat.modeString()} ${brother.path}');
+              includes.add(brother);
+            }
           }
         }
       }
@@ -90,5 +115,6 @@ Future<Set<Path>> revertPaths(
     }
   }
 
-  return results;
+  includes.removeAll(excludes);
+  return includes;
 }

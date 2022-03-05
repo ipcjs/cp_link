@@ -11,7 +11,7 @@ class Path {
     String path,
   ) : this._(p.normalize(p.absolute(path)));
 
-  const Path._(this.path);
+  const Path._(this.path) : assert(path != '');
 
   final String path;
 
@@ -27,6 +27,8 @@ class Path {
   Directory toDirectory() => Directory(path);
 
   File toFile() => File(path);
+
+  Future<FileStat> stat() => FileStat.stat(path);
 
   Future<bool> isDirectory({bool followLinks = true}) async =>
       await FileSystemEntity.type(path, followLinks: followLinks) ==
