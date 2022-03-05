@@ -4,4 +4,5 @@
 
 # Conventional directory for build output.
 build/
-white-list.txt
+*.list
+

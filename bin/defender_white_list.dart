@@ -14,76 +14,76 @@ void main(List<String> args) async {
       defaultsTo: _apply,
     )
     ..addOption(
-      'white-list-file',
+      'danger-list-file',
       abbr: 'f',
-      help: 'white list file',
-      defaultsTo: 'white.list',
+      help: 'danger list file',
+      defaultsTo: 'danger.list',
     );
   try {
     final results = parser.parse({
       ...args,
-      // r'--white-list-file=white.list',
+      // r'--danger-list-file=danger.list',
       // r'C:\Users\ipcjs\Downloads',
     });
     _apply = results['apply'];
 
-    final whiteList = results.rest.map((e) => Path(e)).toSet();
+    final dangerList = results.rest.map((e) => Path(e)).toSet();
 
-    final String? whiteListFilePath;
-    if ((whiteListFilePath = results['white-list-file']) != null) {
-      final whiteListFile = File(whiteListFilePath!);
-      if (await whiteListFile.exists()) {
-        for (final line in await whiteListFile.readAsLines()) {
+    final String? dangerListFilePath;
+    if ((dangerListFilePath = results['danger-list-file']) != null) {
+      final dangerListFile = File(dangerListFilePath!);
+      if (await dangerListFile.exists()) {
+        for (final line in await dangerListFile.readAsLines()) {
           if (line.trim().isNotEmpty && !line.startsWith('#')) {
-            whiteList.add(Path(line));
+            dangerList.add(Path(line));
           }
         }
       } else {
         print(
-            '[warn] white list file not found: ${whiteListFile.absolute.path}');
+            '[warn] danger list file not found: ${dangerListFile.absolute.path}');
       }
     }
-    if (whiteList.isEmpty) {
-      throw Exception('Please set white list or file');
+    if (dangerList.isEmpty) {
+      throw Exception('Please set danger list or file');
     }
 
     await process(
-      whiteList: whiteList,
+      dangerList: dangerList,
     );
   } catch (e, st) {
     print('$e\n'
         '$st\n'
-        'defender_white_list: set windows defender exclude list by white list.\n\n'
+        'defender_danger_list: set windows defender exclude list by danger list.\n\n'
         '${parser.usage}');
   }
 }
 
 Future<void> process({
-  required Set<Path> whiteList,
+  required Set<Path> dangerList,
 }) async {
   final results = await revertPaths(
-    whiteList,
+    dangerList,
     onlyIncludeDir: true,
   );
   final excludes = <Path>{
     Path(r'C:\Documents and Settings'),
     Path(r'C:\Recovery'),
   };
-  final blackList = results.where((it) {
+  final safetyList = results.where((it) {
     final isSystemFile = it.name.startsWith('\$');
     return !isSystemFile && !excludes.contains(it);
   }).toList(growable: false);
 
   print('''
-White list:
-${whiteList.map((e) => e.path).join('\n')}
+Danger list:
+${dangerList.map((e) => e.path).join('\n')}
 
 ↓↓↓↓↓↓↓↓↓↓
 
-Black list:
-${blackList.map((e) => e.path).join('\n')}
+Safety list:
+${safetyList.map((e) => e.path).join('\n')}
 ''');
-  if (_apply) const MpPreference().exclusionPath.set(blackList);
+  if (_apply) const MpPreference().exclusionPath.set(safetyList);
 }
 
 Future<Set<Path>> revertPaths(
