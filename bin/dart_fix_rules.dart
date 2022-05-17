@@ -61,7 +61,7 @@ Future<int> main(List<String> args) async {
 
 Future<Tuple2<List<_FixFile>, String>> _dartFix({bool apply = false}) async {
   final result = await Process.run(
-    'dart',
+    Platform.isWindows ? 'dart.bat' : 'dart',
     ['fix', apply ? '--apply' : '--dry-run'],
     stderrEncoding: utf8,
     stdoutEncoding: utf8,
@@ -79,7 +79,7 @@ Future<Tuple2<List<_FixFile>, String>> _dartFix({bool apply = false}) async {
       files.add(file);
       continue;
     }
-    final match = _ruleLineRegExp.firstMatch(line);
+    final match = _FixRule.ruleLineRegExp.firstMatch(line);
     if (match != null) {
       file!.fixRules.add(_FixRule(match.group(1)!, int.parse(match.group(2)!)));
     }
@@ -92,11 +92,10 @@ Future<void> process(
   List<String> targetRules,
   bool apply,
 ) async {
-  print('dart fix --dry-run...');
+  print('Dart fix --dry-run...');
   final files = (await _dartFix(apply: false)).item1;
 
   print('Analysis result...');
-  // Compute the paths and rules to be excluded.
   final excludePaths = <String>{};
   final excludeRules = <String>{};
 
@@ -109,33 +108,18 @@ Future<void> process(
   }
   excludeRules.removeAll(targetRules);
 
-  // output analysis_options file
-  if (!apply) {
-    print('''
-linter:
-  rules:
-${excludeRules.map((e) => '    $e: false').join('\n')}
-
-analyzer:
-  exclude:
-${excludePaths.map((e) => '    - $e').join('\n')}
-  '''
-        .trim());
-    return;
-  }
-
-  print('update analysis_options.yaml...');
+  print('Update analysis_options.yaml...');
   final originConfig = await configFile.readAsString();
   final tempConfig = _patchYaml(originConfig, excludePaths, excludeRules);
   try {
     await configFile.writeAsString(tempConfig);
 
-    print('exec dart fix...');
-    final stdout = (await _dartFix(apply: true)).item2;
+    print('Execute dart fix ${apply ? '--apply' : '--dry-run'}...');
+    final stdout = (await _dartFix(apply: apply)).item2;
 
     print(stdout);
   } finally {
-    print('resume analysis_options.yaml...');
+    print('Resume analysis_options.yaml...');
     await configFile.writeAsString(originConfig);
   }
 }
@@ -173,8 +157,6 @@ String _patchYaml(
   return yaml.toString();
 }
 
-final _ruleLineRegExp = RegExp(r'^  (\w+).*(\d+).*fix(es)?$');
-
 class _FixFile {
   const _FixFile(this.path, this.fixRules);
 
@@ -188,6 +170,8 @@ class _FixFile {
 }
 
 class _FixRule {
+  static final ruleLineRegExp = RegExp(r'^  (\w+).*(\d+).*fix(es)?$');
+
   const _FixRule(this.name, this.fixCount);
 
   final String name;
