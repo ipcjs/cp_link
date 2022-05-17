@@ -18,9 +18,13 @@ include: package:lints/recommended.yaml
 linter:
   rules:
     # - camel_case_types: true
-    - unnecessary_this: false
 
 analyzer:
+  strong-mode:
+#    implicit-casts: false
+#    implicit-dynamic: false
+  errors:
+    unnecessary_this: ignore
 #   exclude:
 #     - path/to/excluded/files/**
 

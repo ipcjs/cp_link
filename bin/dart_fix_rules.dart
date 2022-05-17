@@ -1,26 +1,21 @@
 // ignore_for_file: unnecessary_this
 
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/args.dart';
-import 'package:tuple/tuple.dart';
 import 'package:yaml/yaml.dart';
 import 'package:yaml_edit/yaml_edit.dart';
 
-import 'exception/exception.dart';
+import 'exec/dart_fix.dart';
+import 'exec/exec.dart';
 import 'utils/dart_sdk.dart';
 import 'utils/yaml.dart';
 
-/// Generate analysis_options files that only fix specific rules:
-///
-/// ```
-/// ```
 ///
 /// Print rules that will be fixed:
 ///
 /// ```
-/// dart fix --dry-run | grep -Po '(?<=^  )\w+(?=.*fix(es)?$)' | sort -u | awk '{print $0 ": false"}'
+/// dart fix --dry-run | grep -Po '(?<=^  )\w+(?=.*fix(es)?$)' | sort -u | awk '{print $0 ": ignore"}'
 /// ```
 ///
 /// Created by ipcjs on 2022/5/16.
@@ -59,41 +54,13 @@ Future<int> main(List<String> args) async {
   );
 }
 
-Future<Tuple2<List<_FixFile>, String>> _dartFix({bool apply = false}) async {
-  final result = await Process.run(
-    Platform.isWindows ? 'dart.bat' : 'dart',
-    ['fix', apply ? '--apply' : '--dry-run'],
-    stderrEncoding: utf8,
-    stdoutEncoding: utf8,
-  );
-  if (result.exitCode != 0) {
-    throw CodeException(result.exitCode, result.stderr);
-  }
-
-  // Analysis result
-  final files = <_FixFile>[];
-  _FixFile? file;
-  for (final line in LineSplitter.split(result.stdout as String)) {
-    if (line.endsWith('.dart')) {
-      file = _FixFile(line.replaceAll('\\', '/'), []);
-      files.add(file);
-      continue;
-    }
-    final match = _FixRule.ruleLineRegExp.firstMatch(line);
-    if (match != null) {
-      file!.fixRules.add(_FixRule(match.group(1)!, int.parse(match.group(2)!)));
-    }
-  }
-  return Tuple2(files, result.stdout);
-}
-
 Future<void> process(
   File configFile,
   List<String> targetRules,
   bool apply,
 ) async {
   print('Dart fix --dry-run...');
-  final files = (await _dartFix(apply: false)).item1;
+  final files = (await dartFix(apply: false)).item1;
 
   print('Analysis result...');
   final excludePaths = <String>{};
@@ -115,7 +82,7 @@ Future<void> process(
     await configFile.writeAsString(tempConfig);
 
     print('Execute dart fix ${apply ? '--apply' : '--dry-run'}...');
-    final stdout = (await _dartFix(apply: apply)).item2;
+    final stdout = (await dartFix(apply: apply)).item2;
 
     print(stdout);
   } finally {
@@ -155,30 +122,4 @@ String _patchYaml(
   yaml.update(['analyzer', 'exclude'], mergedExcludes);
 
   return yaml.toString();
-}
-
-class _FixFile {
-  const _FixFile(this.path, this.fixRules);
-
-  final String path;
-  final List<_FixRule> fixRules;
-
-  Map<String, dynamic> toJson() => <String, dynamic>{
-        'path': path,
-        'fixRules': fixRules,
-      };
-}
-
-class _FixRule {
-  static final ruleLineRegExp = RegExp(r'^  (\w+).*(\d+).*fix(es)?$');
-
-  const _FixRule(this.name, this.fixCount);
-
-  final String name;
-  final int fixCount;
-
-  Map<String, dynamic> toJson() => <String, dynamic>{
-        'name': name,
-        'fixCount': fixCount,
-      };
 }

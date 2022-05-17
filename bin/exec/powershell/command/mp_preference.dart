@@ -1,4 +1,5 @@
 import '../../../io/path.dart';
+import '../../exec.dart';
 import '../command.dart';
 import '../powershell.dart';
 
@@ -36,7 +37,7 @@ class ExclusionPathCommand extends Command<List<Path>> {
     await powershell([
       '${action.name}-MpPreference -ExclusionPath',
       paths.map((e) => e.path).toPowerShellArray(),
-    ]).onError<PowerShellException>(
+    ]).onError<ExecException>(
       (error, stackTrace) =>
           Future.error(MissingAdministratorPrivilegesException(error.stderr)),
       test: (error) => error.stderr.contains('你的权限不足，无法执行请求的操作。'),
