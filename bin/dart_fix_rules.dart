@@ -65,8 +65,10 @@ Future<void> process(
   print('Analysis result...');
   final excludePaths = <String>{};
   final excludeRules = <String>{};
+  final excludeErrors = <String>{};
 
   for (final file in files) {
+    excludeErrors.addAll(file.fixRules.map((e) => e.name));
     if (file.fixRules.any((it) => targetRules.contains(it.name))) {
       excludeRules.addAll(file.fixRules.map((e) => e.name));
     } else {
@@ -74,10 +76,17 @@ Future<void> process(
     }
   }
   excludeRules.removeAll(targetRules);
+  excludeErrors.removeAll(targetRules);
 
   print('Update analysis_options.yaml...');
   final originConfig = await configFile.readAsString();
-  final tempConfig = _patchYaml(originConfig, excludePaths, excludeRules);
+  final tempConfig = _patchYaml(
+    originConfig,
+    excludePaths,
+    excludeRules,
+    excludeErrors,
+    useAnalyzerErrors: true,
+  );
   try {
     await configFile.writeAsString(tempConfig);
 
@@ -95,10 +104,12 @@ String _patchYaml(
   String yamlContent,
   Set<String> excludePaths,
   Set<String> excludeRules,
-) {
+  Set<String> excludeErrors, {
+  bool useAnalyzerErrors = true,
+}) {
   final yaml = YamlEditor(yamlContent);
 
-  if (false) {
+  if (!useAnalyzerErrors) {
     final rules = yaml.putIfAbsent(['linter', 'rules'], () => []);
     if (rules is! YamlList) {
       throw ArgumentError('linter.rules must be a list');
@@ -113,17 +124,17 @@ String _patchYaml(
     yaml.update(['linter', 'rules'], mergedRules);
   }
 
-  if (true) {
+  if (useAnalyzerErrors) {
     final errors = yaml.putIfAbsent(['analyzer', 'errors'], () => {});
     if (errors is! YamlMap) {
       throw ArgumentError('analyzer.errors must be a map');
     }
     final mergedErrors =
-        excludeRules.map((e) => {e: 'ignore'}).merge({...errors});
+        excludeErrors.map((e) => {e: 'ignore'}).merge({...errors});
     yaml.update(['analyzer', 'errors'], mergedErrors);
   }
 
-  if (false) {
+  if (!useAnalyzerErrors) {
     final excludes = yaml.putIfAbsent(['analyzer', 'exclude'], () => []);
     if (excludes is! YamlList) {
       throw ArgumentError('analyzer.exclude must be a list');
