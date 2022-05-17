@@ -13,7 +13,7 @@ import 'utils/dart_sdk.dart';
 import 'utils/yaml.dart';
 
 /// ## Usage
-/// use `dart fix` to fix specific rules
+/// Fix a specific type of error in a dart code.
 ///
 /// ```sh
 /// # only fix `invalid_null_aware_operator`
@@ -35,7 +35,7 @@ Future<int> main(List<String> args) async {
     ..addFlag('apply', abbr: 'A', help: 'apply change');
 
   return runCommandBlock(
-    'dart_fix_rules: use `dart fix` to fix specific rules\n\n'
+    'dart_fix_rules: fix a specific type of error in a dart code.\n\n'
     'dart-fix-rules [rules...] [--apply]',
     parser.usage,
     () async {
