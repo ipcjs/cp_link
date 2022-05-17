@@ -1,8 +1,10 @@
 // ignore_for_file: unnecessary_this
+import 'package:path/path.dart' as p;
 
 import 'dart:io';
 
 import 'package:args/args.dart';
+import 'package:tuple/tuple.dart';
 import 'package:yaml/yaml.dart';
 import 'package:yaml_edit/yaml_edit.dart';
 
@@ -46,7 +48,7 @@ Future<int> main(List<String> args) async {
       }
 
       process(
-        configFile,
+        // configFile,
         targetRules,
         apply,
       );
@@ -55,7 +57,7 @@ Future<int> main(List<String> args) async {
 }
 
 Future<void> process(
-  File configFile,
+  // File configFile,
   List<String> targetRules,
   bool apply,
 ) async {
@@ -79,16 +81,26 @@ Future<void> process(
   excludeErrors.removeAll(targetRules);
 
   print('Update analysis_options.yaml...');
-  final originConfig = await configFile.readAsString();
-  final tempConfig = _patchYaml(
-    originConfig,
-    excludePaths,
-    excludeRules,
-    excludeErrors,
-    useAnalyzerErrors: true,
-  );
+  final configFiles = await Directory.current
+      .list(recursive: true)
+      .where(
+        (it) => p.basename(it.path) == 'analysis_options.yaml' && it is File,
+      )
+      .cast<File>()
+      .toList();
+  final originConfigs =
+      await Future.wait(configFiles.map((e) => e.readAsString()));
   try {
-    await configFile.writeAsString(tempConfig);
+    await Future.wait(Tuple2(configFiles, originConfigs)
+        .map((e) => e.item1.writeAsString(_patchYaml(
+              e.item2,
+              // TODO: excludePaths在子目录中可能不对, 但当前没有使用它(
+              excludePaths,
+              excludeRules,
+              excludeErrors,
+              useAnalyzerErrors: true,
+              yamlPath: e.item1.path,
+            ))));
 
     print('Execute dart fix ${apply ? '--apply' : '--dry-run'}...');
     final stdout = (await dartFix(apply: apply)).item2;
@@ -96,7 +108,8 @@ Future<void> process(
     print(stdout);
   } finally {
     print('Resume analysis_options.yaml...');
-    await configFile.writeAsString(originConfig);
+    await Future.wait(Tuple2(configFiles, originConfigs)
+        .map((e) => e.item1.writeAsString(e.item2)));
   }
 }
 
@@ -106,6 +119,7 @@ String _patchYaml(
   Set<String> excludeRules,
   Set<String> excludeErrors, {
   bool useAnalyzerErrors = true,
+  String? yamlPath,
 }) {
   final yaml = YamlEditor(yamlContent);
 
@@ -129,6 +143,10 @@ String _patchYaml(
     if (errors is! YamlMap) {
       throw ArgumentError('analyzer.errors must be a map');
     }
+    if (false)
+      print('$yamlPath:\n'
+          'errors: $errors\n'
+          'excludeErrors: $excludeErrors');
     final mergedErrors =
         excludeErrors.map((e) => {e: 'ignore'}).merge({...errors});
     yaml.update(['analyzer', 'errors'], mergedErrors);
