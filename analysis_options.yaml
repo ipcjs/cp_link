@@ -20,7 +20,7 @@ linter:
     # - camel_case_types: true
     - unnecessary_this: false
 
-# analyzer:
+analyzer:
 #   exclude:
 #     - path/to/excluded/files/**
 
