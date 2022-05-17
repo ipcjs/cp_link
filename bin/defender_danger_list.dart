@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:args/args.dart';
-import 'powershell/command/mp_preference.dart';
+import 'exec/powershell/command/mp_preference.dart';
 import 'io/path.dart';
 
 bool _apply = false;
