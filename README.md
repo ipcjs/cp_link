@@ -6,6 +6,9 @@
 
 ## Install
 
-```shell
+```sh
+# get dependencies
+dart pub get
+# compile to exe
 ./install.sh
 ```
