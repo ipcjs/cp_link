@@ -1,4 +1,3 @@
-// ignore_for_file: unnecessary_this
 import 'package:path/path.dart' as p;
 
 import 'dart:io';

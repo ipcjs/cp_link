@@ -1,5 +1,3 @@
-// ignore_for_file: unnecessary_this
-
 import 'package:yaml/yaml.dart';
 import 'package:yaml_edit/yaml_edit.dart';
 
