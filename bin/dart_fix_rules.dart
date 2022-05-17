@@ -29,7 +29,7 @@ Future<int> main(List<String> args) async {
     () async {
       final results = parser.parse(
         args,
-        // [...args, 'fuck'],
+        // [...args, 'invalid_null_aware_operator'],
       );
 
       final apply = results['apply'] as bool;
@@ -59,7 +59,7 @@ Future<void> process(
   List<String> targetRules,
   bool apply,
 ) async {
-  print('Dart fix --dry-run...');
+  print('Pre-execute dart fix --dry-run...');
   final files = (await dartFix(apply: false)).item1;
 
   print('Analysis result...');
@@ -98,28 +98,42 @@ String _patchYaml(
 ) {
   final yaml = YamlEditor(yamlContent);
 
-  final rules = yaml.putIfAbsent(['linter', 'rules'], () => []);
-  if (rules is! YamlList) {
-    throw ArgumentError('linter.rules must be a list');
-  }
-  final excludes = yaml.putIfAbsent(['analyzer', 'exclude'], () => []);
-  if (excludes is! YamlList) {
-    throw ArgumentError('analyzer.exclude must be a list');
+  if (false) {
+    final rules = yaml.putIfAbsent(['linter', 'rules'], () => []);
+    if (rules is! YamlList) {
+      throw ArgumentError('linter.rules must be a list');
+    }
+    // rules字段似乎没用?...
+    final mergedRules = excludeRules
+        .map<Map>((e) => {e: false})
+        .merge(rules.map((it) => (it is Map ? it : {it: true})).merge())
+        .entries
+        .map((e) => {e.key: e.value})
+        .toList();
+    yaml.update(['linter', 'rules'], mergedRules);
   }
 
-  final mergedRules = excludeRules
-      .map<Map>((e) => {e: false})
-      .merge(rules.map((it) => (it is Map ? it : {it: true})).merge())
-      .entries
-      .map((e) => {e.key: e.value})
-      .toList();
-  yaml.update(['linter', 'rules'], mergedRules);
+  if (true) {
+    final errors = yaml.putIfAbsent(['analyzer', 'errors'], () => {});
+    if (errors is! YamlMap) {
+      throw ArgumentError('analyzer.errors must be a map');
+    }
+    final mergedErrors =
+        excludeRules.map((e) => {e: 'ignore'}).merge({...errors});
+    yaml.update(['analyzer', 'errors'], mergedErrors);
+  }
 
-  final mergedExcludes = {
-    ...excludes,
-    ...excludePaths,
-  }.toList();
-  yaml.update(['analyzer', 'exclude'], mergedExcludes);
+  if (false) {
+    final excludes = yaml.putIfAbsent(['analyzer', 'exclude'], () => []);
+    if (excludes is! YamlList) {
+      throw ArgumentError('analyzer.exclude must be a list');
+    }
+    final mergedExcludes = {
+      ...excludes,
+      ...excludePaths,
+    }.toList();
+    yaml.update(['analyzer', 'exclude'], mergedExcludes);
+  }
 
   return yaml.toString();
 }
