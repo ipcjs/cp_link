@@ -13,12 +13,22 @@ import 'exec/exec.dart';
 import 'utils/dart_sdk.dart';
 import 'utils/yaml.dart';
 
+/// ## Usage
+/// use `dart fix` to fix specific rules
 ///
-/// Print rules that will be fixed:
+/// ```sh
+/// # only fix `invalid_null_aware_operator`
+/// dart-fix-rules invalid_null_aware_operator --apply
+/// ```
+/// ## Repair a specific rule without using this command
 ///
+/// 1. Print the rules that will be repaired by `dart fix`.
 /// ```
 /// dart fix --dry-run | grep -Po '(?<=^  )\w+(?=.*fix(es)?$)' | sort -u | awk '{print $0 ": ignore"}'
 /// ```
+/// 2. Add the rules to `analysis_options.yaml` file under `analyzer.errors` entry.
+/// 3. Remove the rule you want to apply.
+/// 4. Run `dart fix --apply` to apply the changes.
 ///
 /// Created by ipcjs on 2022/5/16.
 Future<int> main(List<String> args) async {
@@ -26,7 +36,8 @@ Future<int> main(List<String> args) async {
     ..addFlag('apply', abbr: 'A', help: 'apply change');
 
   return runCommandBlock(
-    'dart_fix_rules: use `dart fix` to fix specific rules',
+    'dart_fix_rules: use `dart fix` to fix specific rules\n\n'
+    'dart-fix-rules [rules...] [--apply]',
     parser.usage,
     () async {
       final results = parser.parse(
@@ -94,7 +105,8 @@ Future<void> process(
     await Future.wait(Tuple2(configFiles, originConfigs)
         .map((e) => e.item1.writeAsString(_patchYaml(
               e.item2,
-              // TODO: excludePaths在子目录中可能不对, 但当前没有使用它(
+              // zh: excludePaths在子目录中可能不对, 但当前没有使用它(
+              // en: excludePaths may not work in sub-directory, but now it's not used.
               excludePaths,
               excludeRules,
               excludeErrors,
@@ -128,7 +140,7 @@ String _patchYaml(
     if (rules is! YamlList) {
       throw ArgumentError('linter.rules must be a list');
     }
-    // rules字段似乎没用?...
+    // rules field only works for linter rules, invalid for analyzer rules
     final mergedRules = excludeRules
         .map<Map>((e) => {e: false})
         .merge(rules.map((it) => (it is Map ? it : {it: true})).merge())
