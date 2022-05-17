@@ -32,7 +32,10 @@ Future<int> main(List<String> args) async {
     'dart_fix_rules: use `dart fix` to fix specific rules',
     parser.usage,
     () async {
-      final results = parser.parse([...args, 'fuck']);
+      final results = parser.parse(
+        args,
+        // [...args, 'fuck'],
+      );
 
       final apply = results['apply'] as bool;
 
@@ -59,7 +62,7 @@ Future<int> main(List<String> args) async {
 Future<Tuple2<List<_FixFile>, String>> _dartFix({bool apply = false}) async {
   final result = await Process.run(
     'dart',
-    ['fix', '--dry-run'],
+    ['fix', apply ? '--apply' : '--dry-run'],
     stderrEncoding: utf8,
     stdoutEncoding: utf8,
   );
