@@ -1,7 +1,12 @@
 name: cp_link
 description: A simple command-line application.
 version: 1.0.0
-# homepage: https://www.example.com
+homepage: https://github.com/ipcjs/cp_link
+
+executables:
+  cp-link: cp_link
+  dart-fix-rules: dart_fix_rules
+  defender-danger-list: defender_danger_list
 
 environment:
   sdk: '>=2.17.0 <3.0.0'
